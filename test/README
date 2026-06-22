@@ -1,0 +1,99 @@
+# ESP32 Smart Biometric Lock System
+
+## Overview
+This repository contains the firmware and hardware documentation for a secure, embedded electronic lock system. Built around the ESP32-WROOM-32 microcontroller, the project integrates an AS608 optical fingerprint scanner, a 4x4 matrix keypad, and a 12V electromechanical actuator. 
+
+The system prioritizes security and reliability by utilizing cryptographic hashing for credential storage, active hardware monitoring, and an automated locking mechanism to prevent user negligence.
+
+---
+
+## Core Features
+* **Dual Authentication:** Supports both high-speed biometric identification and numerical PIN validation.
+* **Cryptographic Storage:** Implements SHA-256 one-way hashing via the `mbedtls` library. Passwords are never stored in plain text.
+* **Non-Volatile Memory (NVS):** Retains system credentials (master hash, user hashes, and biometric index) safely in the ESP32's flash memory, surviving power outages.
+* **Auto-Lock Mechanism:** Monitors the physical state of the door using a magnetic reed switch and automatically engages the motor when the door is securely closed.
+* **PWM Motor Control:** Utilizes Pulse-Width Modulation (PWM) via a low-side MOSFET switch to drive the 12V actuator smoothly, preventing mechanical stress on the locking gears.
+* **Hardware Protection:** Incorporates a flyback diode to suppress inductive voltage spikes from the motor.
+
+---
+
+## Hardware Requirements
+
+### Main Components
+* ESP32 Development Board (ESP32-WROOM-32 / DevKit V1)
+* AS608 Optical Fingerprint Sensor
+* 4x4 Matrix Membrane Keypad
+* 12V DC Motor or Solenoid Lock
+* N-Channel Power MOSFET (e.g., IRLZ44N, IRF3205)
+* 1N4007 Rectifier Diode (Flyback protection)
+* Magnetic Contact Sensor (Reed Switch)
+* Micro Limit Switch (SPDT)
+* Status LED and 220Ω Resistor
+
+### Power Architecture
+* 12V Battery / UPS Module (Primary power source)
+* LM2596 Step-Down DC-DC Converter (Regulates 12V to 5V for the ESP32 VIN pin)
+
+---
+
+## Pin Mapping (ESP32)
+
+| Component | ESP32 GPIO | Type | Description |
+| :--- | :--- | :--- | :--- |
+| **AS608 Sensor** | GPIO 25 | UART RX | Connects to Sensor TX |
+| **AS608 Sensor** | GPIO 26 | UART TX | Connects to Sensor RX |
+| **Motor (MOSFET)** | GPIO 32 | PWM Output | Gate trigger signal |
+| **Limit Switch** | GPIO 14 | Digital Input | Internal pull-up enabled |
+| **Magnetic Sensor** | GPIO 22 | Digital Input | Internal pull-up enabled |
+| **Status LED** | GPIO 15 | Digital Output | System visual feedback |
+| **Keypad Rows** | GPIO 19, 18, 5, 17 | Digital Output | Active matrix scanning |
+| **Keypad Cols** | GPIO 2, 0, 4, 16 | Digital Input | Internal pull-up enabled |
+
+---
+
+## Software Dependencies
+This project is configured for **PlatformIO**. Ensure the following libraries are included in your `platformio.ini` file:
+* `chris--a/Keypad` (v3.1.1 or higher)
+* `adafruit/Adafruit Fingerprint Sensor Library` (v2.1.3 or higher)
+
+The project also relies on native ESP32 Arduino Core libraries: `Preferences.h`, `HardwareSerial.h`, and the `mbedtls/md.h` cryptographic framework.
+
+---
+
+## Operating Instructions
+
+### Initial Setup
+Upon the first boot, the system initializes the Non-Volatile Storage (NVS) and creates a default Master PIN.
+* **Default Master PIN:** `123456`
+* **Confirmation Key:** `#`
+* **Cancel/Clear Key:** `*`
+
+### Standard Operation
+* **Biometric Access:** Place a registered finger on the AS608 scanner. The door will unlock immediately upon successful identification.
+* **PIN Access:** Input a registered user PIN or the Master PIN on the keypad and press `#`.
+
+### Administrative Commands
+The following commands require Master PIN authorization to proceed:
+
+* **Register New User PIN:** 1. Input `BCDA` and press `#`.
+  2. Enter the Master PIN and press `#`.
+  3. Enter the new desired User PIN and press `#` to save.
+
+* **Register New Fingerprint:**
+  1. Input `ABCD` and press `#`.
+  2. Enter the Master PIN and press `#`.
+  3. Place the finger on the scanner. Remove it when prompted, and place it again for cross-validation.
+
+* **Format Biometric Database:**
+  1. Input `9999` and press `#`.
+  2. This command purges all saved fingerprints from the AS608 module memory.
+
+---
+
+## Security Notice
+The current `9999` formatting command executes immediately. For production environments, it is highly recommended to encapsulate this function within the Master PIN validation loop to prevent unauthorized database resets.
+
+---
+
+## License
+This project is developed for academic and prototyping purposes.
